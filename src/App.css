@@ -1,0 +1,332 @@
+@import url('https://fonts.googleapis.com/css2?family=Nunito:wght@400;600;700;800&family=Fredoka:wght@400;500;600;700&display=swap');
+
+* {
+  margin: 0;
+  padding: 0;
+  box-sizing: border-box;
+}
+
+:root {
+  --primary-gradient: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+  --card-bg: rgba(255, 255, 255, 0.95);
+  --highlight-color: #FFD700;
+  --highlight-shadow: 0 0 30px rgba(255, 215, 0, 0.8);
+  --btn-primary: #FF6B6B;
+  --btn-primary-hover: #ff5252;
+  --btn-secondary: #4ECDC4;
+  --btn-secondary-hover: #3dbdb5;
+  --timer-color: #E74C3C;
+  --text-primary: #2d3748;
+  --text-secondary: #718096;
+}
+
+body {
+  font-family: 'Nunito', sans-serif;
+  min-height: 100vh;
+  background: var(--primary-gradient);
+  overflow-x: hidden;
+}
+
+.app {
+  min-height: 100vh;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+/* 主頁樣式 */
+.home-page {
+  width: 100%;
+  max-width: 500px;
+  padding: 20px;
+  animation: fadeIn 0.5s ease-out;
+}
+
+@keyframes fadeIn {
+  from {
+    opacity: 0;
+    transform: translateY(20px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+.card {
+  background: var(--card-bg);
+  border-radius: 30px;
+  padding: 50px 40px;
+  box-shadow: 0 20px 60px rgba(0, 0, 0, 0.2);
+  text-align: center;
+}
+
+.title {
+  font-family: 'Fredoka', sans-serif;
+  font-size: 2.5rem;
+  color: #667eea;
+  margin-bottom: 10px;
+  text-shadow: 2px 2px 4px rgba(0, 0, 0, 0.1);
+}
+
+.subtitle {
+  font-size: 1.3rem;
+  color: var(--text-secondary);
+  margin-bottom: 40px;
+  font-weight: 600;
+}
+
+.input-group {
+  margin-bottom: 25px;
+  text-align: left;
+}
+
+.input-group label {
+  display: block;
+  font-size: 1.1rem;
+  font-weight: 700;
+  color: var(--text-primary);
+  margin-bottom: 10px;
+}
+
+.input-group input {
+  width: 100%;
+  padding: 18px 25px;
+  font-size: 1.5rem;
+  font-family: 'Fredoka', sans-serif;
+  font-weight: 600;
+  border: 3px solid #e2e8f0;
+  border-radius: 15px;
+  background: #f7fafc;
+  color: var(--text-primary);
+  text-align: center;
+  transition: all 0.3s ease;
+}
+
+.input-group input:focus {
+  outline: none;
+  border-color: #667eea;
+  background: #fff;
+  box-shadow: 0 0 0 4px rgba(102, 126, 234, 0.2);
+}
+
+.start-btn {
+  width: 100%;
+  padding: 22px 40px;
+  font-size: 1.5rem;
+  font-family: 'Nunito', sans-serif;
+  font-weight: 800;
+  color: white;
+  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+  border: none;
+  border-radius: 20px;
+  cursor: pointer;
+  transition: all 0.3s ease;
+  box-shadow: 0 8px 25px rgba(102, 126, 234, 0.4);
+  margin-top: 20px;
+}
+
+.start-btn:hover {
+  transform: translateY(-3px);
+  box-shadow: 0 12px 35px rgba(102, 126, 234, 0.5);
+}
+
+.start-btn:active {
+  transform: translateY(0);
+}
+
+/* 遊戲頁面樣式 */
+.game-page {
+  width: 100%;
+  height: 100vh;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  padding: 30px;
+  position: relative;
+  animation: fadeIn 0.4s ease-out;
+}
+
+.timer {
+  position: absolute;
+  top: 30px;
+  right: 30px;
+  font-family: 'Fredoka', sans-serif;
+  font-size: 2rem;
+  font-weight: 700;
+  color: var(--timer-color);
+  background: rgba(255, 255, 255, 0.9);
+  padding: 15px 30px;
+  border-radius: 20px;
+  box-shadow: 0 8px 25px rgba(0, 0, 0, 0.15);
+  animation: pulse 1s ease-in-out infinite;
+}
+
+@keyframes pulse {
+  0%, 100% {
+    transform: scale(1);
+  }
+  50% {
+    transform: scale(1.05);
+  }
+}
+
+.number-display {
+  display: flex;
+  gap: 15px;
+  margin-bottom: 60px;
+  perspective: 1000px;
+}
+
+.digit {
+  font-family: 'Fredoka', sans-serif;
+  font-weight: 700;
+  color: var(--text-primary);
+  background: white;
+  padding: 25px 35px;
+  border-radius: 20px;
+  box-shadow: 0 10px 30px rgba(0, 0, 0, 0.15);
+  transition: all 0.3s ease;
+  transform-style: preserve-3d;
+  min-width: 80px;
+  text-align: center;
+}
+
+.digit.highlighted {
+  background: var(--highlight-color);
+  color: #333;
+  transform: scale(1.15) rotateX(10deg);
+  box-shadow: var(--highlight-shadow);
+  animation: bounce 0.4s ease infinite alternate;
+}
+
+@keyframes bounce {
+  from {
+    transform: scale(1.15) rotateX(10deg) translateY(0);
+  }
+  to {
+    transform: scale(1.15) rotateX(10deg) translateY(-10px);
+  }
+}
+
+.controls {
+  display: flex;
+  gap: 30px;
+  align-items: center;
+}
+
+.next-btn,
+.exit-btn {
+  padding: 20px 50px;
+  font-size: 1.4rem;
+  font-family: 'Nunito', sans-serif;
+  font-weight: 800;
+  border: none;
+  border-radius: 20px;
+  cursor: pointer;
+  transition: all 0.3s ease;
+}
+
+.next-btn {
+  color: white;
+  background: linear-gradient(135deg, #FF6B6B 0%, #ee5a5a 100%);
+  box-shadow: 0 8px 25px rgba(255, 107, 107, 0.4);
+}
+
+.next-btn:hover:not(:disabled) {
+  transform: translateY(-3px);
+  box-shadow: 0 12px 35px rgba(255, 107, 107, 0.5);
+}
+
+.next-btn:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+}
+
+.exit-btn {
+  position: absolute;
+  bottom: 30px;
+  right: 30px;
+  color: white;
+  background: linear-gradient(135deg, #718096 0%, #4a5568 100%);
+  box-shadow: 0 8px 25px rgba(74, 85, 104, 0.4);
+}
+
+.exit-btn:hover {
+  transform: translateY(-3px);
+  box-shadow: 0 12px 35px rgba(74, 85, 104, 0.5);
+}
+
+/* 響應式設計 */
+@media (max-width: 768px) {
+  .card {
+    padding: 35px 25px;
+  }
+
+  .title {
+    font-size: 2rem;
+  }
+
+  .subtitle {
+    font-size: 1.1rem;
+    margin-bottom: 30px;
+  }
+
+  .input-group input {
+    padding: 15px 20px;
+    font-size: 1.3rem;
+  }
+
+  .start-btn {
+    padding: 18px 30px;
+    font-size: 1.3rem;
+  }
+
+  .timer {
+    font-size: 1.5rem;
+    padding: 12px 22px;
+    top: 20px;
+    right: 20px;
+  }
+
+  .number-display {
+    gap: 8px;
+    flex-wrap: wrap;
+    justify-content: center;
+    max-width: 90vw;
+  }
+
+  .digit {
+    padding: 20px 28px;
+    min-width: 65px;
+    font-size: 1.8rem;
+  }
+
+  .controls {
+    flex-direction: column;
+    gap: 20px;
+  }
+
+  .next-btn,
+  .exit-btn {
+    padding: 18px 45px;
+    font-size: 1.2rem;
+  }
+
+  .exit-btn {
+    position: static;
+  }
+}
+
+@media (max-width: 480px) {
+  .number-display {
+    gap: 6px;
+  }
+
+  .digit {
+    padding: 15px 20px;
+    min-width: 55px;
+    border-radius: 15px;
+  }
+}
