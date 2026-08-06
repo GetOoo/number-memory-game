@@ -98,38 +98,26 @@ const GamePage = ({ digits, countdownSeconds, onExit }) => {
   const [currentNumber, setCurrentNumber] = useState(() => generateNumber(digits))
   const [timeLeft, setTimeLeft] = useState(countdownSeconds)
   const [isReading, setIsReading] = useState(false)
+  const [readCount, setReadCount] = useState(0) // 已朗讀次數
+  const [phase, setPhase] = useState('countdown') // 'countdown' | 'reading' | 'waiting'
+  
   const timerRef = useRef(null)
-  const isReadingRef = useRef(false)
+  const readCountRef = useRef(0)
+  const phaseRef = useRef('countdown')
+
+  // 保持 ref 同步
+  useEffect(() => {
+    readCountRef.current = readCount
+    phaseRef.current = phase
+  }, [readCount, phase])
 
   const stopSpeaking = useCallback(() => {
     window.speechSynthesis.cancel()
-    isReadingRef.current = false
     setIsReading(false)
   }, [])
 
-  const startTimer = useCallback(() => {
-    if (timerRef.current) {
-      clearInterval(timerRef.current)
-    }
-    timerRef.current = setInterval(() => {
-      // 只有在非朗讀狀態時才倒數
-      if (!isReadingRef.current) {
-        setTimeLeft((prev) => {
-          if (prev <= 1) {
-            return 0
-          }
-          return prev - 1
-        })
-      }
-    }, 1000)
-  }, [])
-
+  // 朗讀數字
   const speakNumber = useCallback((number, onComplete) => {
-    stopSpeaking()
-    isReadingRef.current = true
-    setIsReading(true)
-    
-    // 將數字轉換為中文讀法
     const chineseText = numberToChinese(parseInt(number))
     
     const utterance = new SpeechSynthesisUtterance(chineseText)
@@ -138,44 +126,86 @@ const GamePage = ({ digits, countdownSeconds, onExit }) => {
     utterance.pitch = 1.0
     
     utterance.onend = () => {
-      isReadingRef.current = false
-      setIsReading(false)
       if (onComplete) onComplete()
     }
     
     utterance.onerror = () => {
-      isReadingRef.current = false
-      setIsReading(false)
       if (onComplete) onComplete()
     }
     
     window.speechSynthesis.cancel()
     window.speechSynthesis.speak(utterance)
-  }, [stopSpeaking])
+  }, [])
 
-  const generateNextNumber = useCallback(() => {
-    setCurrentNumber(generateNumber(digits))
-    setTimeLeft(countdownSeconds)
-    // 新數字出現後開始計時，3秒後開始朗讀
-    startTimer()
+  // 開始朗讀流程（朗讀2次）
+  const startReadingCycle = useCallback((number) => {
+    if (phaseRef.current !== 'countdown') return
     
-    setTimeout(() => {
-      speakNumber(generateNumber(digits), null)
-    }, 3000)
-  }, [digits, countdownSeconds, speakNumber, startTimer])
+    // 停止計時
+    if (timerRef.current) {
+      clearInterval(timerRef.current)
+      timerRef.current = null
+    }
+    
+    setPhase('reading')
+    setIsReading(true)
+    let count = 0
+    
+    const readNext = () => {
+      count++
+      setReadCount(count)
+      
+      if (count <= 2) {
+        speakNumber(number, () => {
+          // 兩次朗讀之間休息1秒
+          if (count < 2) {
+            setTimeout(readNext, 1000)
+          } else {
+            // 朗讀完成，等待3秒後切換到下一題
+            setIsReading(false)
+            setPhase('waiting')
+            setTimeout(() => {
+              if (phaseRef.current === 'waiting') {
+                // 切換到下一題
+                setCurrentNumber(generateNumber(digits))
+                setTimeLeft(countdownSeconds)
+                setReadCount(0)
+                setPhase('countdown')
+              }
+            }, 3000)
+          }
+        })
+      }
+    }
+    
+    readNext()
+  }, [digits, countdownSeconds, speakNumber])
 
-  // 初始化：顯示數字後開始計時
+  // 處理 Next 按鈕
+  const handleNext = useCallback(() => {
+    if (phaseRef.current === 'reading' || phaseRef.current === 'waiting') return
+    startReadingCycle(currentNumber)
+  }, [currentNumber, startReadingCycle])
+
+  // 初始化計時器
   useEffect(() => {
     setTimeLeft(countdownSeconds)
-    startTimer()
     
-    // 3秒後開始朗讀第一個數字
-    const timer = setTimeout(() => {
-      speakNumber(currentNumber, null)
-    }, 3000)
+    timerRef.current = setInterval(() => {
+      if (phaseRef.current === 'countdown') {
+        setTimeLeft((prev) => {
+          if (prev <= 1) {
+            // 時間到，開始朗讀
+            clearInterval(timerRef.current)
+            timerRef.current = null
+            return 0
+          }
+          return prev - 1
+        })
+      }
+    }, 1000)
     
     return () => {
-      clearTimeout(timer)
       if (timerRef.current) {
         clearInterval(timerRef.current)
       }
@@ -185,33 +215,10 @@ const GamePage = ({ digits, countdownSeconds, onExit }) => {
 
   // 監聽時間歸零
   useEffect(() => {
-    if (timeLeft === 0 && !isReading) {
-      // 時間到，朗讀當前數字
-      speakNumber(currentNumber, () => {
-        // 朗讀完成後，3秒後切換到下一題
-        setTimeout(() => {
-          generateNextNumber()
-        }, 3000)
-      })
+    if (timeLeft === 0 && phase === 'countdown') {
+      startReadingCycle(currentNumber)
     }
-  }, [timeLeft, isReading, currentNumber, speakNumber, generateNextNumber])
-
-  const handleNext = () => {
-    if (isReading) return
-    
-    // 停止當前計時
-    if (timerRef.current) {
-      clearInterval(timerRef.current)
-    }
-    
-    // 立即朗讀當前數字
-    speakNumber(currentNumber, () => {
-      // 朗讀完成後，3秒後切換到下一題
-      setTimeout(() => {
-        generateNextNumber()
-      }, 3000)
-    })
-  }
+  }, [timeLeft, phase, currentNumber, startReadingCycle])
 
   const getNumberFontSize = () => {
     const sizeMap = { 1: 200, 2: 180, 3: 160, 4: 140, 5: 120, 6: 100 }
@@ -236,7 +243,7 @@ const GamePage = ({ digits, countdownSeconds, onExit }) => {
         <button 
           className="next-btn" 
           onClick={handleNext}
-          disabled={isReading}
+          disabled={phase !== 'countdown'}
         >
           Next ▶️
         </button>
