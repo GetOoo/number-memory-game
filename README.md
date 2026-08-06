@@ -1,16 +1,38 @@
-# React + Vite
+# 🔢 數字記憶小遊戲
 
-This template provides a minimal setup to get React working in Vite with HMR and some Oxlint rules.
+一個訓練數字記憶力的粵語發音小遊戲！
 
-Currently, two official plugins are available:
+## 功能特色
 
-- [@vitejs/plugin-react](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react) uses [Oxc](https://oxc.rs)
-- [@vitejs/plugin-react-swc](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react-swc) uses [SWC](https://swc.rs/)
+- ✅ 可自訂位數 (1-6位) 和倒數時間 (5-30秒)
+- ✅ 數字用中文朗讀（如 374 讀作「三百七十四」）
+- ✅ 計時器在朗讀時自動暫停
+- ✅ 大字體顯示，適合小朋友閱讀
 
-## React Compiler
+## 遊戲玩法
 
-The React Compiler is not enabled on this template because of its impact on dev & build performances. To add it, see [this documentation](https://react.dev/learn/react-compiler/installation).
+1. 在首頁輸入位數和倒數秒數
+2. 點擊「開始遊戲」
+3. 遊戲會顯示一個大數字，右上角倒數計時
+4. 計時結束後，系統會用中文朗讀這個數字
+5. 點擊「Next」可立即朗讀當前數字並跳到下一題
+6. 點擊「Exit」返回首頁
 
-## Expanding the Oxlint configuration
+## 安裝與運行
 
-If you are developing a production application, we recommend using TypeScript with type-aware lint rules enabled. Check out the [TS template](https://github.com/vitejs/vite/tree/main/packages/create-vite/template-react-ts) for information on how to integrate TypeScript and Oxlint's TypeScript related rules in your project.
+```bash
+# 安裝依賴
+npm install
+
+# 開發模式運行
+npm run dev
+
+# 構建生產版本
+npm run build
+```
+
+## 技術栈
+
+- React
+- Vite
+- Web Speech API (中文語音朗讀)
