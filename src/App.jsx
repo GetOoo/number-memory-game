@@ -166,11 +166,29 @@ const GamePage = ({ digits, countdownSeconds, onExit }) => {
             setPhase('waiting')
             setTimeout(() => {
               if (phaseRef.current === 'waiting') {
-                // 切換到下一題
+                // 切換到下一題並重啟計時
                 setCurrentNumber(generateNumber(digits))
                 setTimeLeft(countdownSeconds)
                 setReadCount(0)
                 setPhase('countdown')
+                
+                // 重啟計時器
+                if (timerRef.current) {
+                  clearInterval(timerRef.current)
+                }
+                timerRef.current = setInterval(() => {
+                  if (phaseRef.current === 'countdown') {
+                    setTimeLeft((prev) => {
+                      if (prev <= 1) {
+                        // 時間到，開始朗讀
+                        clearInterval(timerRef.current)
+                        timerRef.current = null
+                        return 0
+                      }
+                      return prev - 1
+                    })
+                  }
+                }, 1000)
               }
             }, 3000)
           }
