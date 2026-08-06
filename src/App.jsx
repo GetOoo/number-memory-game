@@ -1,18 +1,44 @@
 import { useState, useEffect, useCallback, useRef } from 'react'
 import './App.css'
 
-// 粵語數字讀音映射
-const cantoneseNumbers = {
-  '0': { zh: '零', yue: 'ling4' },
-  '1': { zh: '一', yue: 'jat1' },
-  '2': { zh: '二', yue: 'ji6' },
-  '3': { zh: '三', yue: 'saam1' },
-  '4': { zh: '四', yue: 'sei3' },
-  '5': { zh: '五', yue: 'ng5' },
-  '6': { zh: '六', yue: 'luk6' },
-  '7': { zh: '七', yue: 'cat1' },
-  '8': { zh: '八', yue: 'baat3' },
-  '9': { zh: '九', yue: 'gau2' }
+// 中文數字轉換（將數字轉換為中文讀法）
+const numberToChinese = (num) => {
+  const units = ['', '十', '百', '千', '萬']
+  const digits = ['零', '一', '二', '三', '四', '五', '六', '七', '八', '九']
+  
+  if (num === 0) return '零'
+  
+  const numStr = String(num)
+  const len = numStr.length
+  let result = ''
+  let prevWasZero = false
+  
+  for (let i = 0; i < len; i++) {
+    const digit = parseInt(numStr[i])
+    const power = len - i - 1
+    
+    if (digit === 0) {
+      if (!prevWasZero && power > 0 && result.length > 0) {
+        result += '零'
+        prevWasZero = true
+      }
+    } else {
+      if (prevWasZero || (i > 0 && digit === 1 && power === 1)) {
+        // 十位是1時不讀"一十"
+        if (power === 1) {
+          result = result.slice(0, -1) // 移除之前的"零"
+        }
+      }
+      result += digits[digit]
+      if (power > 0) {
+        result += units[power]
+      }
+      prevWasZero = false
+    }
+  }
+  
+  // 移除末尾的"零"
+  return result.replace(/零+$/, '') || '零'
 }
 
 // 生成指定位數的隨機數字
@@ -22,41 +48,6 @@ const generateNumber = (digits) => {
     Math.floor(Math.random() * 10)
   )
   return [firstDigit, ...restDigits].join('')
-}
-
-// 朗讀數字（逐個讀）
-const speakNumber = (number, onDigitChange, onComplete) => {
-  const digits = number.split('')
-  let index = 0
-  
-  const speakNext = () => {
-    if (index < digits.length) {
-      const digit = digits[index]
-      const { yue } = cantoneseNumbers[digit]
-      
-      onDigitChange(index)
-      
-      const utterance = new SpeechSynthesisUtterance(yue)
-      utterance.lang = 'zh-CN'
-      utterance.rate = 0.8
-      utterance.pitch = 1.1
-      
-      utterance.onend = () => {
-        index++
-        if (index < digits.length) {
-          setTimeout(speakNext, 400)
-        } else {
-          onDigitChange(-1)
-          onComplete()
-        }
-      }
-      
-      window.speechSynthesis.cancel()
-      window.speechSynthesis.speak(utterance)
-    }
-  }
-  
-  speakNext()
 }
 
 // 主頁組件
@@ -106,79 +97,120 @@ const HomePage = ({ onStart }) => {
 const GamePage = ({ digits, countdownSeconds, onExit }) => {
   const [currentNumber, setCurrentNumber] = useState(() => generateNumber(digits))
   const [timeLeft, setTimeLeft] = useState(countdownSeconds)
-  const [highlightedIndex, setHighlightedIndex] = useState(-1)
   const [isReading, setIsReading] = useState(false)
   const timerRef = useRef(null)
-  const isCountingRef = useRef(true)
+  const isReadingRef = useRef(false)
 
   const stopSpeaking = useCallback(() => {
     window.speechSynthesis.cancel()
+    isReadingRef.current = false
     setIsReading(false)
-    setHighlightedIndex(-1)
   }, [])
 
-  const speakAndAdvance = useCallback(() => {
-    stopSpeaking()
-    setIsReading(true)
-    
-    speakNumber(
-      currentNumber,
-      (idx) => setHighlightedIndex(idx),
-      () => {
-        setIsReading(false)
-        setHighlightedIndex(-1)
-        setTimeout(() => {
-          setCurrentNumber(generateNumber(digits))
-          setTimeLeft(countdownSeconds)
-          isCountingRef.current = true
-        }, 3000)
-      }
-    )
-  }, [currentNumber, digits, countdownSeconds, stopSpeaking])
-
-  useEffect(() => {
-    if (isReading) {
-      if (timerRef.current) {
-        clearInterval(timerRef.current)
-        timerRef.current = null
-      }
-      return
+  const startTimer = useCallback(() => {
+    if (timerRef.current) {
+      clearInterval(timerRef.current)
     }
-
     timerRef.current = setInterval(() => {
-      if (isCountingRef.current) {
+      // 只有在非朗讀狀態時才倒數
+      if (!isReadingRef.current) {
         setTimeLeft((prev) => {
           if (prev <= 1) {
-            isCountingRef.current = false
             return 0
           }
           return prev - 1
         })
       }
     }, 1000)
+  }, [])
 
+  const speakNumber = useCallback((number, onComplete) => {
+    stopSpeaking()
+    isReadingRef.current = true
+    setIsReading(true)
+    
+    // 將數字轉換為中文讀法
+    const chineseText = numberToChinese(parseInt(number))
+    
+    const utterance = new SpeechSynthesisUtterance(chineseText)
+    utterance.lang = 'zh-CN'
+    utterance.rate = 0.8
+    utterance.pitch = 1.0
+    
+    utterance.onend = () => {
+      isReadingRef.current = false
+      setIsReading(false)
+      if (onComplete) onComplete()
+    }
+    
+    utterance.onerror = () => {
+      isReadingRef.current = false
+      setIsReading(false)
+      if (onComplete) onComplete()
+    }
+    
+    window.speechSynthesis.cancel()
+    window.speechSynthesis.speak(utterance)
+  }, [stopSpeaking])
+
+  const generateNextNumber = useCallback(() => {
+    setCurrentNumber(generateNumber(digits))
+    setTimeLeft(countdownSeconds)
+    // 新數字出現後開始計時，3秒後開始朗讀
+    startTimer()
+    
+    setTimeout(() => {
+      speakNumber(generateNumber(digits), null)
+    }, 3000)
+  }, [digits, countdownSeconds, speakNumber, startTimer])
+
+  // 初始化：顯示數字後開始計時
+  useEffect(() => {
+    setTimeLeft(countdownSeconds)
+    startTimer()
+    
+    // 3秒後開始朗讀第一個數字
+    const timer = setTimeout(() => {
+      speakNumber(currentNumber, null)
+    }, 3000)
+    
     return () => {
+      clearTimeout(timer)
       if (timerRef.current) {
         clearInterval(timerRef.current)
       }
-    }
-  }, [isReading])
-
-  useEffect(() => {
-    if (timeLeft === 0 && !isReading) {
-      speakAndAdvance()
-    }
-  }, [timeLeft, isReading, speakAndAdvance])
-
-  useEffect(() => {
-    return () => {
       stopSpeaking()
     }
-  }, [stopSpeaking])
+  }, [])
+
+  // 監聽時間歸零
+  useEffect(() => {
+    if (timeLeft === 0 && !isReading) {
+      // 時間到，朗讀當前數字
+      speakNumber(currentNumber, () => {
+        // 朗讀完成後，3秒後切換到下一題
+        setTimeout(() => {
+          generateNextNumber()
+        }, 3000)
+      })
+    }
+  }, [timeLeft, isReading, currentNumber, speakNumber, generateNextNumber])
 
   const handleNext = () => {
-    stopSpeaking()
-    speakAndAdvance()
+    if (isReading) return
+    
+    // 停止當前計時
+    if (timerRef.current) {
+      clearInterval(timerRef.current)
+    }
+    
+    // 立即朗讀當前數字
+    speakNumber(currentNumber, () => {
+      // 朗讀完成後，3秒後切換到下一題
+      setTimeout(() => {
+        generateNextNumber()
+      }, 3000)
+    })
   }
 
   const getNumberFontSize = () => {
@@ -194,10 +226,7 @@ const GamePage = ({ digits, countdownSeconds, onExit }) => {
 
       <div className="number-display" style={{ fontSize: `${getNumberFontSize()}px` }}>
         {currentNumber.split('').map((digit, index) => (
-          <span
-            key={index}
-            className={`digit ${highlightedIndex === index ? 'highlighted' : ''}`}
-          >
+          <span key={index} className="digit">
             {digit}
           </span>
         ))}
