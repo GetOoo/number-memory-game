@@ -62,14 +62,14 @@ const HomePage = ({ onStart }) => {
         <p className="subtitle">訓練你的數字記憶力！</p>
         
         <div className="input-group">
-          <label htmlFor="digits">位數 (1-6)</label>
+          <label htmlFor="digits">位數 (1-5)</label>
           <input
             id="digits"
             type="number"
             min="1"
-            max="6"
+            max="5"
             value={digits}
-            onChange={(e) => setDigits(Math.max(1, Math.min(6, parseInt(e.target.value) || 1)))}
+            onChange={(e) => setDigits(Math.max(1, Math.min(5, parseInt(e.target.value) || 1)))}
           />
         </div>
         
@@ -100,10 +100,12 @@ const GamePage = ({ digits, countdownSeconds, onExit }) => {
   const [isReading, setIsReading] = useState(false)
   const [readCount, setReadCount] = useState(0) // 已朗讀次數
   const [phase, setPhase] = useState('countdown') // 'countdown' | 'reading' | 'waiting'
+  const [cursorIndex, setCursorIndex] = useState(-1) // 當前游標位置 (-1表示無游標)
   
   const timerRef = useRef(null)
   const readCountRef = useRef(0)
   const phaseRef = useRef('countdown')
+  const cursorTimerRef = useRef(null)
 
   // 保持 ref 同步
   useEffect(() => {
@@ -111,28 +113,72 @@ const GamePage = ({ digits, countdownSeconds, onExit }) => {
     phaseRef.current = phase
   }, [readCount, phase])
 
+  // 清除游標計時器
+  const clearCursorTimer = () => {
+    if (cursorTimerRef.current) {
+      clearInterval(cursorTimerRef.current)
+      cursorTimerRef.current = null
+    }
+  }
+
+  // 停止朗讀並清除游標
   const stopSpeaking = useCallback(() => {
     window.speechSynthesis.cancel()
     setIsReading(false)
+    setCursorIndex(-1)
+    clearCursorTimer()
   }, [])
 
-  // 朗讀數字
+  // 朗讀數字（帶游標效果）- 完整朗讀數字，游標跟隨進度
   const speakNumber = useCallback((number, onComplete) => {
+    const numDigits = number.length
     const chineseText = numberToChinese(parseInt(number))
     
+    // 估算朗讀時間：根據中文字數和朗讀速度
+    // 假設每個中文字大約需要 350ms (速度 0.9)
+    const estimatedCharDuration = 350 
+    const totalDuration = chineseText.length * estimatedCharDuration
+    const timePerDigit = totalDuration / numDigits
+    
+    let currentIndex = 0
+    let hasStarted = false
+    
+    const moveCursor = () => {
+      if (!hasStarted) return
+      currentIndex++
+      if (currentIndex < numDigits) {
+        setCursorIndex(currentIndex)
+        cursorTimerRef.current = setTimeout(moveCursor, timePerDigit)
+      }
+    }
+    
+    // 創建朗讀
     const utterance = new SpeechSynthesisUtterance(chineseText)
     utterance.lang = 'zh-CN'
-    utterance.rate = 0.8
+    utterance.rate = 0.9
     utterance.pitch = 1.0
     
+    utterance.onstart = () => {
+      hasStarted = true
+      setCursorIndex(0)
+      cursorTimerRef.current = setTimeout(moveCursor, timePerDigit)
+    }
+    
     utterance.onend = () => {
+      clearCursorTimer()
+      setCursorIndex(-1)
+      hasStarted = false
       if (onComplete) onComplete()
     }
     
     utterance.onerror = () => {
+      clearCursorTimer()
+      setCursorIndex(-1)
+      hasStarted = false
       if (onComplete) onComplete()
     }
     
+    // 先清除之前的朗讀，再開始新的
     window.speechSynthesis.cancel()
     window.speechSynthesis.speak(utterance)
   }, [])
@@ -190,7 +236,7 @@ const GamePage = ({ digits, countdownSeconds, onExit }) => {
                   }
                 }, 1000)
               }
-            }, 3000)
+            }, 1000)
           }
         })
       }
@@ -227,9 +273,10 @@ const GamePage = ({ digits, countdownSeconds, onExit }) => {
       if (timerRef.current) {
         clearInterval(timerRef.current)
       }
+      clearCursorTimer()
       stopSpeaking()
     }
-  }, [])
+  }, [stopSpeaking])
 
   // 監聽時間歸零
   useEffect(() => {
@@ -239,7 +286,7 @@ const GamePage = ({ digits, countdownSeconds, onExit }) => {
   }, [timeLeft, phase, currentNumber, startReadingCycle])
 
   const getNumberFontSize = () => {
-    const sizeMap = { 1: 200, 2: 180, 3: 160, 4: 140, 5: 120, 6: 100 }
+    const sizeMap = { 1: 200, 2: 180, 3: 160, 4: 140, 5: 120 }
     return sizeMap[digits] || 120
   }
 
@@ -251,8 +298,12 @@ const GamePage = ({ digits, countdownSeconds, onExit }) => {
 
       <div className="number-display" style={{ fontSize: `${getNumberFontSize()}px` }}>
         {currentNumber.split('').map((digit, index) => (
-          <span key={index} className="digit">
+          <span 
+            key={index} 
+            className={`digit ${cursorIndex === index ? 'cursor' : ''}`}
+          >
             {digit}
+            {cursorIndex === index && <span className="cursor-underline"></span>}
           </span>
         ))}
       </div>
@@ -305,3 +356,4 @@ function App() {
 }
 
 export default App
+
