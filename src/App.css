@@ -191,7 +191,6 @@ body {
   transform-style: preserve-3d;
   min-width: 80px;
   text-align: center;
-  position: relative;
 }
 
 .digit.highlighted {
@@ -200,45 +199,6 @@ body {
   transform: scale(1.15) rotateX(10deg);
   box-shadow: var(--highlight-shadow);
   animation: bounce 0.4s ease infinite alternate;
-}
-
-/* 朗讀游標效果 */
-.digit.cursor {
-  background: var(--highlight-color);
-  color: #333;
-  transform: scale(1.15);
-  box-shadow: var(--highlight-shadow);
-  animation: cursorPulse 0.8s ease-in-out infinite;
-}
-
-.cursor-underline {
-  position: absolute;
-  bottom: 15px;
-  left: 50%;
-  transform: translateX(-50%);
-  width: 60%;
-  height: 4px;
-  background: #333;
-  border-radius: 2px;
-  animation: blink 0.5s ease-in-out infinite;
-}
-
-@keyframes cursorPulse {
-  0%, 100% {
-    transform: scale(1.15);
-  }
-  50% {
-    transform: scale(1.2);
-  }
-}
-
-@keyframes blink {
-  0%, 100% {
-    opacity: 1;
-  }
-  50% {
-    opacity: 0.3;
-  }
 }
 
 @keyframes bounce {

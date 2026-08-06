@@ -54,12 +54,13 @@ const generateNumber = (digits) => {
 const HomePage = ({ onStart }) => {
   const [digits, setDigits] = useState(3)
   const [seconds, setSeconds] = useState(10)
+  const [language, setLanguage] = useState('zh-CN')
 
   return (
     <div className="home-page">
       <div className="card">
-        <h1 className="title">🔢 數字記憶小遊戲</h1>
-        <p className="subtitle">訓練你的數字記憶力！</p>
+        <h1 className="title">🔢 讀數小遊戲</h1>
+        <p className="subtitle">熟悉數字！</p>
         
         <div className="input-group">
           <label htmlFor="digits">位數 (1-5)</label>
@@ -74,18 +75,31 @@ const HomePage = ({ onStart }) => {
         </div>
         
         <div className="input-group">
-          <label htmlFor="seconds">倒數秒數 (5-30)</label>
+          <label htmlFor="seconds">倒數秒數 (2-15)</label>
           <input
             id="seconds"
             type="number"
-            min="5"
-            max="30"
+            min="2"
+            max="15"
             value={seconds}
             onChange={(e) => setSeconds(Math.max(5, Math.min(30, parseInt(e.target.value) || 10)))}
           />
         </div>
+
+        <div className="input-group">
+          <label htmlFor="language">朗讀語言</label>
+          <select
+            id="language"
+            value={language}
+            onChange={(e) => setLanguage(e.target.value)}
+            className="language-select"
+          >
+            <option value="zh-CN">🇨🇳 普通話</option>
+            <option value="zh-HK">🇭🇰 粵語</option>
+          </select>
+        </div>
         
-        <button className="start-btn" onClick={() => onStart(digits, seconds)}>
+        <button className="start-btn" onClick={() => onStart(digits, seconds, language)}>
           開始遊戲 🚀
         </button>
       </div>
@@ -94,7 +108,7 @@ const HomePage = ({ onStart }) => {
 }
 
 // 遊戲頁面組件
-const GamePage = ({ digits, countdownSeconds, onExit }) => {
+const GamePage = ({ digits, countdownSeconds, language, onExit }) => {
   const [currentNumber, setCurrentNumber] = useState(() => generateNumber(digits))
   const [timeLeft, setTimeLeft] = useState(countdownSeconds)
   const [isReading, setIsReading] = useState(false)
@@ -106,12 +120,66 @@ const GamePage = ({ digits, countdownSeconds, onExit }) => {
   const readCountRef = useRef(0)
   const phaseRef = useRef('countdown')
   const cursorTimerRef = useRef(null)
+  const isWarmedRef = useRef(false)
 
   // 保持 ref 同步
   useEffect(() => {
     readCountRef.current = readCount
     phaseRef.current = phase
   }, [readCount, phase])
+
+  // 預熱 speechSynthesis（解決第一次朗讀問題）
+  useEffect(() => {
+    const selectVoice = () => {
+      const voices = window.speechSynthesis.getVoices()
+      let selectedVoice = null
+      
+      if (language === 'zh-HK') {
+        // 粵語：查找粵語語音
+        selectedVoice = voices.find(v => 
+          v.lang.includes('HK') || 
+          v.lang.toLowerCase().includes('cantonese') ||
+          v.lang.includes('yue')
+        )
+      } else {
+        // 普通話：查找普通話語音
+        selectedVoice = voices.find(v => 
+          v.lang.includes('CN') || 
+          v.lang.includes('Mandarin')
+        ) || voices.find(v => v.lang.includes('zh'))
+      }
+      
+      speakNumber._selectedVoice = selectedVoice || null
+      console.log('Available voices:', voices.map(v => `${v.name} (${v.lang})`))
+      console.log('Selected voice:', selectedVoice?.name || 'none')
+    }
+    
+    // 立即嘗試獲取語音
+    selectVoice()
+    
+    // 如果語音還沒加載，監聽 voiceschanged 事件
+    if (window.speechSynthesis.getVoices().length === 0) {
+      window.speechSynthesis.addEventListener('voiceschanged', () => {
+        selectVoice()
+        console.log('Voices loaded after voiceschanged event')
+      })
+    }
+    
+    if (!isWarmedRef.current) {
+      const warmUp = new SpeechSynthesisUtterance(' ')
+      if (speakNumber._selectedVoice) {
+        warmUp.voice = speakNumber._selectedVoice
+      } else {
+        warmUp.lang = language
+      }
+      warmUp.volume = 0
+      window.speechSynthesis.speak(warmUp)
+      setTimeout(() => {
+        window.speechSynthesis.cancel()
+        isWarmedRef.current = true
+      }, 100)
+    }
+  }, [language])
 
   // 清除游標計時器
   const clearCursorTimer = () => {
@@ -135,7 +203,6 @@ const GamePage = ({ digits, countdownSeconds, onExit }) => {
     const chineseText = numberToChinese(parseInt(number))
     
     // 估算朗讀時間：根據中文字數和朗讀速度
-    // 假設每個中文字大約需要 350ms (速度 0.9)
     const estimatedCharDuration = 350 
     const totalDuration = chineseText.length * estimatedCharDuration
     const timePerDigit = totalDuration / numDigits
@@ -154,9 +221,15 @@ const GamePage = ({ digits, countdownSeconds, onExit }) => {
     
     // 創建朗讀
     const utterance = new SpeechSynthesisUtterance(chineseText)
-    utterance.lang = 'zh-CN'
+    utterance.lang = language
     utterance.rate = 0.9
     utterance.pitch = 1.0
+    
+    // 如果有選中的語音，優先使用
+    if (speakNumber._selectedVoice) {
+      utterance.voice = speakNumber._selectedVoice
+      utterance.lang = speakNumber._selectedVoice.lang
+    }
     
     utterance.onstart = () => {
       hasStarted = true
@@ -178,10 +251,12 @@ const GamePage = ({ digits, countdownSeconds, onExit }) => {
       if (onComplete) onComplete()
     }
     
-    // 先清除之前的朗讀，再開始新的
+    // 清除之前的朗讀，延遲後開始新的（解決第一次朗讀問題）
     window.speechSynthesis.cancel()
-    window.speechSynthesis.speak(utterance)
-  }, [])
+    setTimeout(() => {
+      window.speechSynthesis.speak(utterance)
+    }, 50)
+  }, [language])
 
   // 開始朗讀流程（朗讀2次）
   const startReadingCycle = useCallback((number) => {
@@ -327,10 +402,10 @@ const GamePage = ({ digits, countdownSeconds, onExit }) => {
 
 function App() {
   const [gameState, setGameState] = useState('home')
-  const [settings, setSettings] = useState({ digits: 3, seconds: 10 })
+  const [settings, setSettings] = useState({ digits: 3, seconds: 10, language: 'zh-CN' })
 
-  const handleStart = (digits, seconds) => {
-    setSettings({ digits, seconds })
+  const handleStart = (digits, seconds, language) => {
+    setSettings({ digits, seconds, language })
     setGameState('game')
   }
 
@@ -348,6 +423,7 @@ function App() {
         <GamePage 
           digits={settings.digits} 
           countdownSeconds={settings.seconds}
+          language={settings.language}
           onExit={handleExit}
         />
       )}
@@ -356,4 +432,3 @@ function App() {
 }
 
 export default App
-
